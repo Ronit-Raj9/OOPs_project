@@ -35,6 +35,8 @@ vh_down = {}
 vh_up = {}
 counter = []
 counter1 = []
+speed = {}
+speed_limit = {}
 
 while True:
     ret, frame = cap.read()
@@ -82,6 +84,9 @@ while True:
                     distance = 10  # meters
                     a_speed_ms = distance / elapsed_time
                     a_speed_kh = a_speed_ms * 3.6
+                    speed[id] = int(a_speed_kh)
+                    if(a_speed_kh >= 50):
+                        speed_limit[id] = int(a_speed_kh)
                     cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
                     cv2.putText(frame, str(id), (x3, y3), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 255, 255), 1)
                     cv2.putText(frame, str(int(a_speed_kh)) + 'Km/h', (x4, y4), cv2.FONT_HERSHEY_COMPLEX, 0.8,
@@ -118,6 +123,8 @@ while True:
 
     d=len(counter)
     u = len(counter1)
+    print(speed)
+    print(speed_limit)
 
     cv2.putText(frame, str("Going Down:")+str(d), (60, 40), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
     cv2.putText(frame, str("Going Up:") + str(u), (60, 75), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
