@@ -5,125 +5,133 @@ from tracker import*
 import math
 import time
 
-model = YOLO('yolov8s.pt')
+def speed_detect():
+    model = YOLO('yolov8s.pt')
 
 
-def RGB(event, x, y, flags, param):
-    if event == cv2.EVENT_MOUSEMOVE:
-        colorsBGR = [x, y]
-        print(colorsBGR)
+    def RGB(event, x, y, flags, param):
+        if event == cv2.EVENT_MOUSEMOVE:
+            colorsBGR = [x, y]
+            print(colorsBGR)
 
 
-cv2.namedWindow('RGB')
-cv2.setMouseCallback('RGB', RGB)
+    cv2.namedWindow('RGB')
+    cv2.setMouseCallback('RGB', RGB)
 
-cap = cv2.VideoCapture('Vidoes/veh2.mp4')
+    cap = cv2.VideoCapture('Vidoes/veh2.mp4')
 
-my_file = open("coco.txt", "r")
-data = my_file.read()
-class_list = data.split("\n")
-# print(class_list)
+    my_file = open("coco.txt", "r")
+    data = my_file.read()
+    class_list = data.split("\n")
+    # print(class_list)
 
-count = 0
+    count = 0
 
-tracker = Tracker()
+    tracker = Tracker()
 
-cy1 = 322
-cy2 = 368
-offset = 6
-vh_down = {}
-vh_up = {}
-counter = []
-counter1 = []
+    cy1 = 322
+    cy2 = 368
+    offset = 6
+    vh_down = {}
+    vh_up = {}
+    counter = []
+    counter1 = []
+    speed = {}
+    speed_limit = {}
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    count += 1
-    if count % 3 != 0:
-        continue
-    frame = cv2.resize(frame, (1020, 500))
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        count += 1
+        if count % 3 != 0:
+            continue
+        frame = cv2.resize(frame, (1020, 500))
 
-    results = model.predict(frame)
-    #   print(results)
-    a = results[0].boxes.data
-    px = pd.DataFrame(a).astype("float")
-    #    print(px)
-    list = []
+        results = model.predict(frame)
+        #   print(results)
+        a = results[0].boxes.data
+        px = pd.DataFrame(a).astype("float")
+        #    print(px)
+        list = []
 
-    for index, row in px.iterrows():
-        #        print(row)
+        for index, row in px.iterrows():
+            #        print(row)
 
-        x1 = int(row[0])
-        y1 = int(row[1])
-        x2 = int(row[2])
-        y2 = int(row[3])
-        d = int(row[5])
-        c = class_list[d]
-        if 'car' in c or 'truck' in c or 'bus' in c or 'motorcycle' in c:
-            list.append([x1, y1, x2, y2])
-    bbox_id = tracker.update(list)
-    for bbox in bbox_id:
-        x3, y3, x4, y4, id = bbox
-        cx = int(x3 + x4) // 2
-        cy = int(y3 + y4) // 2
-        cv2.rectangle(frame, (x3, y3), (x4,y4),(0,0,255),2)
+            x1 = int(row[0])
+            y1 = int(row[1])
+            x2 = int(row[2])
+            y2 = int(row[3])
+            d = int(row[5])
+            c = class_list[d]
+            if 'car' in c or 'truck' in c or 'bus' in c or 'motorcycle' in c:
+                list.append([x1, y1, x2, y2])
+        bbox_id = tracker.update(list)
+        for bbox in bbox_id:
+            x3, y3, x4, y4, id = bbox
+            cx = int(x3 + x4) // 2
+            cy = int(y3 + y4) // 2
+            cv2.rectangle(frame, (x3, y3), (x4,y4),(0,0,255),2)
 
-        #going Down logic
-        if cy1<(cy+offset) and cy1>(cy-offset):
-            vh_down[id] = time.time()
-        if id in vh_down:
-            #speed logic
-            if cy2 < (cy + offset) and cy2 > (cy - offset):
-                elapsed_time = time.time() - vh_down[id]
-                if counter.count(id) == 0:
-                    counter.append(id)
-                    distance = 10  # meters
-                    a_speed_ms = distance / elapsed_time
-                    a_speed_kh = a_speed_ms * 3.6
-                    cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
-                    cv2.putText(frame, str(id), (x3, y3), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 255, 255), 1)
-                    cv2.putText(frame, str(int(a_speed_kh)) + 'Km/h', (x4, y4), cv2.FONT_HERSHEY_COMPLEX, 0.8,
-                                (0, 255, 255), 2)
-                # if counter.count(id)==0:
-                #     counter.append(id)
-
-        # Going up Logic
-        if cy2<(cy+offset) and cy2>(cy-offset):
-            vh_up[id] = time.time()
-        if id in vh_up:
+            #going Down logic
             if cy1<(cy+offset) and cy1>(cy-offset):
-                elapsed1_time = time.time() - vh_up[id]
-                # if counter.count(id) == 0:
-                #     counter1.append(id)
+                vh_down[id] = time.time()
+            if id in vh_down:
+                #speed logic
+                if cy2 < (cy + offset) and cy2 > (cy - offset):
+                    elapsed_time = time.time() - vh_down[id]
+                    if counter.count(id) == 0:
+                        counter.append(id)
+                        distance = 10  # meters
+                        a_speed_ms = distance / elapsed_time
+                        a_speed_kh = a_speed_ms * 3.6
+                        speed[id] = int(a_speed_kh)
+                        if(a_speed_kh >= 50):
+                            speed_limit[id] = int(a_speed_kh)
+                        cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+                        cv2.putText(frame, str(id), (x3, y3), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 255, 255), 1)
+                        cv2.putText(frame, str(int(a_speed_kh)) + 'Km/h', (x4, y4), cv2.FONT_HERSHEY_COMPLEX, 0.8,
+                                    (0, 255, 255), 2)
+                    # if counter.count(id)==0:
+                    #     counter.append(id)
+
+            # Going up Logic
+            if cy2<(cy+offset) and cy2>(cy-offset):
+                vh_up[id] = time.time()
+            if id in vh_up:
+                if cy1<(cy+offset) and cy1>(cy-offset):
+                    elapsed1_time = time.time() - vh_up[id]
+                    # if counter.count(id) == 0:
+                    #     counter1.append(id)
 
 
-                if counter1.count(id) == 0:
-                    counter1.append(id)
-                    distance1 = 10  # meters
-                    a_speed_ms1 = distance1 / elapsed1_time
-                    a_speed_kh1 = a_speed_ms1 * 3.6
-                    cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
-                    cv2.putText(frame, str(id), (x3, y3), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 255, 255), 1)
-                    cv2.putText(frame, str(int(a_speed_kh1)) + 'Km/h', (x4, y4), cv2.FONT_HERSHEY_COMPLEX, 0.8,
-                                (0, 255, 255), 2)
+                    if counter1.count(id) == 0:
+                        counter1.append(id)
+                        distance1 = 10  # meters
+                        a_speed_ms1 = distance1 / elapsed1_time
+                        a_speed_kh1 = a_speed_ms1 * 3.6
+                        cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+                        cv2.putText(frame, str(id), (x3, y3), cv2.FONT_HERSHEY_COMPLEX, 0.6, (255, 255, 255), 1)
+                        cv2.putText(frame, str(int(a_speed_kh1)) + 'Km/h', (x4, y4), cv2.FONT_HERSHEY_COMPLEX, 0.8,
+                                    (0, 255, 255), 2)
 
 
-    cv2.line(frame,(267,cy1),(829,cy1),(255,255,255),1) #line 1
-    cv2.putText(frame, ('L1'), (277, 320), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
-    cv2.line(frame,(167,cy2),(932,cy2),(255,255,255),1) #line 2
-    cv2.putText(frame, ('L2'), (182, 367), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
+        cv2.line(frame,(267,cy1),(829,cy1),(255,255,255),1) #line 1
+        cv2.putText(frame, ('L1'), (277, 320), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
+        cv2.line(frame,(167,cy2),(932,cy2),(255,255,255),1) #line 2
+        cv2.putText(frame, ('L2'), (182, 367), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
 
 
-    d=len(counter)
-    u = len(counter1)
+        d=len(counter)
+        u = len(counter1)
+        print(speed)
+        print(speed_limit)
 
-    cv2.putText(frame, str("Going Down:")+str(d), (60, 40), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
-    cv2.putText(frame, str("Going Up:") + str(u), (60, 75), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
+        cv2.putText(frame, str("Going Down:")+str(d), (60, 40), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
+        cv2.putText(frame, str("Going Up:") + str(u), (60, 75), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0, 255, 255), 2)
 
-    cv2.imshow("RGB", frame)
-    if cv2.waitKey(1) & 0xFF == 27:
-        break
-cap.release()
-cv2.destroyAllWindows()
+        cv2.imshow("RGB", frame)
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+    cap.release()
+    cv2.destroyAllWindows()
